@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src *; img-src 'self' data: https:; font-src 'self' data:" />
+  <title>JARVIS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- Auto-hiding top bar -->
+  <header class="topbar" id="topbar">
+    <div class="topbar__brand">
+      <span class="brand-dot"></span>
+      J.A.R.V.I.S. <span class="brand-ver">v1.0</span>
+    </div>
+    <nav class="topbar__controls">
+      <button class="ctrl" id="btn-mic" title="Toggle listening (M)" aria-label="Toggle listening">
+        <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8"/></svg>
+      </button>
+      <button class="ctrl" id="btn-full" title="Toggle fullscreen (F)" aria-label="Toggle fullscreen">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button class="ctrl ctrl--quit" id="btn-quit" title="Quit (Esc)" aria-label="Quit">
+        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main class="stage" id="stage">
+    <!-- Circular HUD core -->
+    <section class="core" id="core" aria-label="Jarvis status core">
+      <svg class="hud" viewBox="0 0 420 420" aria-hidden="true">
+        <defs>
+          <radialGradient id="coreFill" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#0e2c3a" stop-opacity="0.55" />
+            <stop offset="70%" stop-color="#08131b" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="#07090d" stop-opacity="0" />
+          </radialGradient>
+          <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="5" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        <circle cx="210" cy="210" r="150" fill="url(#coreFill)" />
+
+        <!-- rotating dashed outer ring -->
+        <g class="hud__spin" id="spinOuter">
+          <circle class="ring-dash" cx="210" cy="210" r="152" />
+        </g>
+
+        <!-- tick ring (populated by JS) -->
+        <g id="ticks" class="hud__ticks"></g>
+
+        <!-- counter-rotating inner dashed ring -->
+        <g class="hud__spin-rev" id="spinInner">
+          <circle class="ring-dash-inner" cx="210" cy="210" r="118" />
+        </g>
+
+        <!-- swept arc -->
+        <g class="hud__sweep" id="sweep">
+          <path class="arc" d="M 210 62 A 148 148 0 0 1 358 210" />
+        </g>
+
+        <circle class="ring-baseline" cx="210" cy="210" r="152" />
+        <circle class="ring-baseline ring-baseline--inner" cx="210" cy="210" r="118" />
+      </svg>
+
+      <div class="core__text">
+        <div class="core__name">JARVIS</div>
+        <div class="core__sub" id="coreSub">STANDBY</div>
+      </div>
+    </section>
+
+    <div class="readout">
+      <div class="clock" id="clock">--:--<span class="clock__sec" id="seconds">--</span></div>
+      <div class="date" id="date">—</div>
+    </div>
+
+    <!-- listening waveform -->
+    <div class="wave" id="wave" aria-hidden="true"></div>
+
+    <div class="status" id="status">
+      <span class="status__pulse"></span>
+      <span id="statusText">Say “Jarvis” to wake me</span>
+    </div>
+
+    <div class="transcript" id="transcript" aria-live="polite"></div>
+
+    <!-- typed-command fallback (also useful without a mic) -->
+    <form class="cmd" id="cmdForm" autocomplete="off">
+      <span class="cmd__prompt">&gt;</span>
+      <input id="cmdInput" type="text" placeholder="type a command…  (press Enter)" aria-label="Type a command" />
+    </form>
+
+    <div class="hint" id="hint">
+      “what time is it” &nbsp;·&nbsp; “open youtube” &nbsp;·&nbsp; “tell me a joke” &nbsp;·&nbsp; “help”
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
