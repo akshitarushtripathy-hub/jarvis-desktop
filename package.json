@@ -1,6 +1,6 @@
 {
   "name": "jarvis-desktop",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A voice-activated desktop assistant inspired by Marvel's J.A.R.V.I.S.",
   "main": "src/main/main.js",
   "author": "icymaster4356",
@@ -22,7 +22,8 @@
     "dev": "electron . --enable-logging",
     "dist": "electron-builder",
     "dist:deb": "electron-builder --linux deb",
-    "pack": "electron-builder --dir"
+    "pack": "electron-builder --dir",
+    "jarvis": "python3 bin/jarvis.py"
   },
   "devDependencies": {
     "electron": "^33.4.0",
@@ -39,6 +40,12 @@
       "src/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "bin/jarvis.py",
+        "to": "bin/jarvis.py"
+      }
+    ],
     "linux": {
       "target": [
         "deb"
@@ -48,8 +55,10 @@
     },
     "deb": {
       "maintainer": "icymaster4356",
-      "description": "A voice-activated desktop assistant with a sci-fi HUD interface, inspired by Marvel's J.A.R.V.I.S.",
-      "synopsis": "Voice-activated desktop assistant",
+      "description": "A voice-activated desktop assistant with a sci-fi HUD interface and support for OpenAI, Claude, Gemini and Groq APIs.",
+      "synopsis": "Voice-activated desktop assistant with AI providers",
+      "afterInstall": "build/scripts/after-install.sh",
+      "afterRemove": "build/scripts/after-remove.sh",
       "depends": [
         "libgtk-3-0t64 | libgtk-3-0",
         "libnotify4",

@@ -17,6 +17,9 @@
       J.A.R.V.I.S. <span class="brand-ver">v1.0</span>
     </div>
     <nav class="topbar__controls">
+      <button class="ctrl" id="btn-settings" title="AI settings (S)" aria-label="AI settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.13.6.68 1.04 1.31 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+      </button>
       <button class="ctrl" id="btn-mic" title="Toggle listening (M)" aria-label="Toggle listening">
         <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8"/></svg>
       </button>
@@ -100,6 +103,64 @@
       “what time is it” &nbsp;·&nbsp; “open youtube” &nbsp;·&nbsp; “tell me a joke” &nbsp;·&nbsp; “help”
     </div>
   </main>
+
+  <!-- First-run onboarding -->
+  <div class="onboarding" id="onboarding" hidden>
+    <div class="onboarding__card" role="dialog" aria-modal="true" aria-label="Welcome">
+      <div class="onboarding__badge"><span></span></div>
+      <div class="onboarding__title">INITIALIZING</div>
+      <p class="onboarding__lead">A couple of details before we begin.</p>
+
+      <div class="field">
+        <label for="onbUserName">WHAT SHOULD I CALL YOU?</label>
+        <input type="text" id="onbUserName" placeholder="your name" autocomplete="given-name" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="onbAssistantName">WHAT WOULD YOU LIKE TO CALL ME?</label>
+        <input type="text" id="onbAssistantName" value="Jarvis" placeholder="Jarvis" spellcheck="false" />
+      </div>
+
+      <button class="btn btn--primary onboarding__btn" id="onbContinue">INITIALIZE</button>
+    </div>
+  </div>
+
+  <!-- AI provider settings -->
+  <div class="settings" id="settingsPanel" hidden>
+    <div class="settings__backdrop" id="settingsBackdrop"></div>
+    <div class="settings__card" role="dialog" aria-modal="true" aria-label="AI settings">
+      <header class="settings__head">
+        <div>
+          <div class="settings__title">AI PROVIDERS</div>
+          <div class="settings__subtitle">Connect an API to unlock open-ended answers</div>
+        </div>
+        <button class="ctrl" id="btn-close-settings" aria-label="Close settings">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+
+      <div class="providers" id="providers"></div>
+
+      <div class="field">
+        <label for="apiKey">API KEY <span class="field__tag" id="keyProviderName">GROQ</span></label>
+        <div class="field__row">
+          <input type="password" id="apiKey" placeholder="paste your key here…" autocomplete="off" spellcheck="false" />
+          <button class="btn btn--primary" id="btn-save-key">Save</button>
+          <button class="btn" id="btn-clear-key">Clear</button>
+        </div>
+        <div class="field__note" id="keyNote">Leave blank and Save to keep the existing key.</div>
+      </div>
+
+      <div class="field">
+        <label for="modelSelect">MODEL</label>
+        <select id="modelSelect"></select>
+      </div>
+
+      <footer class="settings__foot">
+        Keys are encrypted and stored locally on this machine. Nothing is sent anywhere except to the provider you choose.
+        <button class="link-btn" id="btn-edit-identity">Edit names</button>
+      </footer>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

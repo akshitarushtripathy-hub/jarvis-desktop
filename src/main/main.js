@@ -1,7 +1,10 @@
 const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
+const settings = require('./settings');
+const ai = require('./ai');
 
 let mainWindow;
+let config = settings.load();
 
 function createWindow() {
   const display = screen.getPrimaryDisplay();
@@ -80,3 +83,55 @@ ipcMain.handle('toggle-fullscreen', () => {
   mainWindow.setFullScreen(!mainWindow.isFullScreen());
   return mainWindow.isFullScreen();
 });
+
+// --- IPC: AI provider configuration & requests -----------------------------
+
+ipcMain.handle('get-identity', () => config.identity);
+
+ipcMain.handle('set-identity', (_event, identity) => {
+  config.identity = {
+    userName: String(identity?.userName || '').trim().slice(0, 60),
+    assistantName: String(identity?.assistantName || 'Jarvis').trim().slice(0, 60) || 'Jarvis',
+  };
+  settings.save(config);
+  return config.identity;
+});
+
+ipcMain.handle('ai-get-config', () => ({
+  provider: config.provider,
+  models: config.models,
+  providers: ai.PROVIDERS,
+  configured: Object.fromEntries(
+    Object.keys(config.keys).map((k) => [k, Boolean(config.keys[k])])
+  ),
+}));
+
+ipcMain.handle('ai-set-provider', (_event, provider) => {
+  if (!Object.prototype.hasOwnProperty.call(config.keys, provider)) return false;
+  config.provider = provider;
+  settings.save(config);
+  return true;
+});
+
+ipcMain.handle('ai-set-key', (_event, provider, key) => {
+  if (!Object.prototype.hasOwnProperty.call(config.keys, provider)) return false;
+  config.keys[provider] = String(key || '').trim();
+  settings.save(config);
+  return true;
+});
+
+ipcMain.handle('ai-clear-key', (_event, provider) => {
+  if (!Object.prototype.hasOwnProperty.call(config.keys, provider)) return false;
+  config.keys[provider] = '';
+  settings.save(config);
+  return true;
+});
+
+ipcMain.handle('ai-set-model', (_event, provider, model) => {
+  if (!Object.prototype.hasOwnProperty.call(config.models, provider)) return false;
+  config.models[provider] = String(model || '').trim();
+  settings.save(config);
+  return true;
+});
+
+ipcMain.handle('ai-ask', async (_event, prompt) => ai.ask(config, String(prompt || '')));

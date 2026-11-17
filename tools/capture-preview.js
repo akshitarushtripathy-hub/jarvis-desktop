@@ -8,12 +8,32 @@ ipcMain.handle('open-external', async () => false);
 ipcMain.handle('open-app', async () => false);
 ipcMain.handle('quit-app', () => app.quit());
 ipcMain.handle('toggle-fullscreen', () => false);
+ipcMain.handle('get-identity', async () => (process.argv.includes('--onboarding')
+  ? { userName: '', assistantName: 'Jarvis' }
+  : { userName: 'Tony', assistantName: 'Jarvis' }));
+ipcMain.handle('set-identity', async (_e, identity) => identity);
+ipcMain.handle('ai-get-config', async () => ({
+  provider: 'groq',
+  models: { openai: 'gpt-4o-mini', anthropic: 'claude-3-5-haiku-latest', gemini: 'gemini-2.0-flash', groq: 'llama-3.3-70b-versatile' },
+  providers: {
+    openai: { name: 'OpenAI', models: ['gpt-4o-mini', 'gpt-4o'] },
+    anthropic: { name: 'Claude', models: ['claude-3-5-haiku-latest'] },
+    gemini: { name: 'Gemini', models: ['gemini-2.0-flash'] },
+    groq: { name: 'Groq', models: ['llama-3.3-70b-versatile'] },
+  },
+  configured: { openai: true, anthropic: false, gemini: false, groq: true },
+}));
+ipcMain.handle('ai-set-provider', async () => true);
+ipcMain.handle('ai-set-key', async () => true);
+ipcMain.handle('ai-clear-key', async () => true);
+ipcMain.handle('ai-set-model', async () => true);
+ipcMain.handle('ai-ask', async () => ({ ok: true, text: 'Test answer.', provider: 'groq', model: 'llama-3.3-70b-versatile' }));
 
 // watchdog: never hang forever
 const watchdog = setTimeout(() => {
   console.log('capture timed out');
   app.quit();
-}, 20000);
+}, 45000);
 
 app.whenReady().then(() => {
   const win = new BrowserWindow({
@@ -35,8 +55,9 @@ app.whenReady().then(() => {
   win.webContents.on('did-finish-load', async () => {
     await new Promise((r) => setTimeout(r, 2000));
     try {
+      await win.webContents.executeJavaScript('document.activeElement && document.activeElement.blur();');
       const img = await win.webContents.capturePage();
-      const out = path.join(__dirname, '../docs/preview.png');
+      const out = path.join(__dirname, process.argv.includes('--onboarding') ? '../docs/onboarding.png' : '../docs/preview.png');
       fs.mkdirSync(path.dirname(out), { recursive: true });
       fs.writeFileSync(out, img.toPNG());
       console.log('Wrote', out);

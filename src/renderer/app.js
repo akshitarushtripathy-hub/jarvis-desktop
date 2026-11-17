@@ -88,6 +88,7 @@ let micOn = false;        // do we want the microphone active
 let commandBuffer = '';
 let commandTimer = null;
 let ignoreJarvisUntil = 0;
+let aiConfig = null;      // provider config loaded from the main process
 
 function setVisual(state) {
   core.classList.remove('listening', 'speaking', 'thinking');
@@ -140,6 +141,14 @@ function speak(text) {
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 
+function isWakeWord(text) {
+  if (!text) return false;
+  const name = (identity.assistantName || 'Jarvis').toLowerCase().trim();
+  const forms = [name, name.replace(/[^a-z0-9]/g, '')].filter(Boolean);
+  if (name === 'jarvis') forms.push('jervis', 'jarves', 'jarvish');
+  return forms.some((f) => text.toLowerCase().includes(f));
+}
+
 function initRecognition() {
   if (!SR) {
     setStatus('Voice input unavailable — use the command bar below');
@@ -159,7 +168,7 @@ function initRecognition() {
       const txt = res[0].transcript.trim();
       if (res.isFinal) {
         if (mode === 'asleep') {
-          if (Date.now() > ignoreJarvisUntil && /\b(jarvis|jervis|jarves|jarvish)\b/i.test(txt)) {
+          if (Date.now() > ignoreJarvisUntil && isWakeWord(txt)) {
             wake();
           }
         } else {
@@ -169,7 +178,7 @@ function initRecognition() {
         }
       } else {
         interim += txt;
-        if (mode === 'asleep' && /\b(jarvis|jervis|jarves|jarvish)\b/i.test(interim)) {
+        if (mode === 'asleep' && isWakeWord(interim)) {
           wake();
         }
       }
@@ -240,7 +249,7 @@ function sleep(spoken = false) {
   clearTimeout(wake._t);
   showTranscript('');
   setVisual(micOn ? null : null);
-  setStatus('Say “Jarvis” to wake me');
+  setStatus('Say “' + identity.assistantName + '” to wake me');
   if (spoken) speak('Going back to standby.');
 }
 
@@ -251,6 +260,171 @@ function scheduleCommand() {
     commandBuffer = '';
     if (cmd) runCommand(cmd);
   }, 1400);
+}
+
+// ---------------------------------------------------------------------------
+// First-run onboarding / identity
+// ---------------------------------------------------------------------------
+let identity = { userName: '', assistantName: 'Jarvis' };
+const onboarding = $('onboarding');
+
+async function loadIdentity() {
+  if (!window.jarvis) return;
+  identity = await window.jarvis.getIdentity();
+  applyIdentity();
+}
+
+function applyIdentity() {
+  const name = (identity.assistantName || 'Jarvis').trim() || 'Jarvis';
+  document.title = name.toUpperCase();
+  const nameEl = document.querySelector('.core__name');
+  if (nameEl) nameEl.textContent = name.toUpperCase();
+}
+
+function openOnboarding() {
+  onboarding.hidden = false;
+  $('onbUserName').value = identity.userName || '';
+  $('onbAssistantName').value = identity.assistantName || 'Jarvis';
+  setTimeout(() => $('onbUserName').focus(), 50);
+}
+
+async function finishOnboarding() {
+  const userName = $('onbUserName').value.trim().slice(0, 60);
+  const assistantName = $('onbAssistantName').value.trim().slice(0, 60) || 'Jarvis';
+  if (window.jarvis) identity = await window.jarvis.setIdentity({ userName, assistantName });
+  applyIdentity();
+  onboarding.hidden = true;
+  speak(`Hello ${userName || 'there'}. I'm ${assistantName}. Say ${assistantName} whenever you need me.`);
+  setStatus('Say “' + assistantName + '” to wake me');
+}
+
+$('onbContinue').addEventListener('click', finishOnboarding);
+$('onboarding').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); finishOnboarding(); }
+});
+$('btn-edit-identity').addEventListener('click', () => {
+  closeSettings();
+  openOnboarding();
+});
+
+// ---------------------------------------------------------------------------
+// AI provider settings
+// ---------------------------------------------------------------------------
+const settingsPanel = $('settingsPanel');
+const providersEl = $('providers');
+const apiKeyInput = $('apiKey');
+const modelSelect = $('modelSelect');
+const keyNote = $('keyNote');
+let selectedProvider = 'groq';
+
+async function loadAIConfig() {
+  if (!window.jarvis) return;
+  aiConfig = await window.jarvis.getAIConfig();
+  selectedProvider = aiConfig.provider;
+  renderProviders();
+  renderModels();
+  $('keyProviderName').textContent = (aiConfig.providers[selectedProvider]?.name || selectedProvider).toUpperCase();
+  apiKeyInput.value = '';
+  keyNote.textContent = aiConfig.configured[selectedProvider]
+    ? 'A key is saved for this provider. Leave blank and Save to keep it.'
+    : 'No key saved yet. Paste your API key and click Save.';
+}
+
+function renderProviders() {
+  providersEl.innerHTML = '';
+  for (const [id, meta] of Object.entries(aiConfig.providers)) {
+    const ready = aiConfig.configured[id];
+    const btn = document.createElement('button');
+    btn.className = 'provider' + (id === selectedProvider ? ' selected' : '') + (ready ? ' ready' : '');
+    btn.innerHTML =
+      '<span class="provider__dot"></span>' +
+      '<span><span class="provider__name">' + meta.name + '</span>' +
+      '<span class="provider__state">' + (ready ? 'Connected' : 'No key') + '</span></span>';
+    btn.addEventListener('click', () => selectProvider(id));
+    providersEl.appendChild(btn);
+  }
+}
+
+function renderModels() {
+  const models = aiConfig.providers[selectedProvider]?.models || [];
+  const current = aiConfig.models[selectedProvider];
+  modelSelect.innerHTML = '';
+  for (const m of models) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    modelSelect.appendChild(opt);
+  }
+  if (current && models.includes(current)) modelSelect.value = current;
+}
+
+async function selectProvider(id) {
+  selectedProvider = id;
+  if (window.jarvis) await window.jarvis.setAIProvider(id);
+  await loadAIConfig();
+}
+
+function openSettings() {
+  settingsPanel.hidden = false;
+  loadAIConfig();
+  showTopbar();
+}
+function closeSettings() { settingsPanel.hidden = true; }
+
+$('btn-settings').addEventListener('click', openSettings);
+$('btn-close-settings').addEventListener('click', closeSettings);
+$('settingsBackdrop').addEventListener('click', closeSettings);
+
+modelSelect.addEventListener('change', async () => {
+  if (window.jarvis) await window.jarvis.setAIModel(selectedProvider, modelSelect.value);
+  if (aiConfig) aiConfig.models[selectedProvider] = modelSelect.value;
+});
+
+$('btn-save-key').addEventListener('click', async () => {
+  const val = apiKeyInput.value.trim();
+  if (val && window.jarvis) await window.jarvis.setAIKey(selectedProvider, val);
+  apiKeyInput.value = '';
+  await loadAIConfig();
+  keyNote.textContent = val ? 'Key saved and encrypted locally.' : 'No changes made.';
+});
+
+$('btn-clear-key').addEventListener('click', async () => {
+  if (window.jarvis) await window.jarvis.clearAIKey(selectedProvider);
+  apiKeyInput.value = '';
+  await loadAIConfig();
+  keyNote.textContent = 'Key removed.';
+});
+
+// Plain text for speech synthesis (no markdown).
+function cleanForSpeech(text) {
+  return String(text)
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[*_`#]/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^\s*[-•]\s*/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function askAI(prompt) {
+  setVisual('thinking');
+  setStatus('Thinking…', true);
+  showTranscript(prompt);
+  let res;
+  try {
+    res = await window.jarvis.askAI(prompt);
+  } catch {
+    res = { ok: false, error: 'Could not reach the AI service.' };
+  }
+  if (res.ok) {
+    const provider = aiConfig?.providers[res.provider]?.name || res.provider || 'AI';
+    setStatus(`${provider} · ${res.model || ''}`.trim().replace(/ · $/, ''));
+    speak(cleanForSpeech(res.text));
+  } else {
+    setStatus(res.error || 'AI request failed');
+    speak(res.error || 'Something went wrong with the AI service.');
+  }
+  setTimeout(() => { if (mode === 'awake') sleep(false); }, 1400);
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +441,25 @@ async function runCommand(raw) {
   const t = raw.toLowerCase().replace(/[.,!?]/g, '').trim();
   showTranscript(raw);
 
+  // AI settings / provider control
+  if (/\b(settings|api key|ai provider|configure)\b/.test(t)) {
+    openSettings();
+    speak('Opening AI settings.');
+    return;
+  }
+  const providerWord = Object.entries(aiConfig?.providers || {})
+    .find(([id, meta]) => t.includes(id) || t.includes(meta.name.toLowerCase()));
+  if (providerWord && /\b(use|switch|connect|set)\b/.test(t)) {
+    await selectProvider(providerWord[0]);
+    const id = providerWord[0];
+    const ready = aiConfig?.configured[id];
+    speak(ready
+      ? `Now using ${providerWord[1].name}.`
+      : `${providerWord[1].name} selected, but it needs an API key. Opening settings.`);
+    if (!ready) openSettings();
+    return;
+  }
+
   // time / date
   if (/\b(time|clock)\b/.test(t)) {
     const now = new Date();
@@ -274,14 +467,14 @@ async function runCommand(raw) {
   }
   // who are you / help
   else if (/\b(help|what can you do|commands)\b/.test(t)) {
-    speak('I can tell you the time, open websites like YouTube or GitHub, search the web, tell a joke, adjust fullscreen, or shut down. Just say the word.');
+    speak('I can tell you the time, open websites, search the web, tell jokes, or shut down. Ask me anything else and I will use the connected A I provider to answer. Say settings to add an A P I key.');
   }
   else if (/\b(who are you|your name|what are you)\b/.test(t)) {
-    speak('I am Jarvis, your voice-activated desktop assistant.');
+    speak(`I am ${identity.assistantName}, your voice-activated desktop assistant.`);
   }
   // greeting / small talk
   else if (/\b(hello|hi|hey|good morning|good evening)\b/.test(t)) {
-    speak('Good day. How can I help you?');
+    speak(identity.userName ? `Good day, ${identity.userName}. How can I help you?` : 'Good day. How can I help you?');
   }
   else if (/\b(how are you)\b/.test(t)) {
     speak('All systems nominal. Ready when you are.');
@@ -335,7 +528,10 @@ async function runCommand(raw) {
     return;
   }
   else {
-    speak('I didn’t catch that. Say “help” to hear what I can do.');
+    // Anything unmatched becomes a question for the connected AI provider,
+    // which is spoken back aloud.
+    await askAI(raw);
+    return;
   }
 
   // return to standby after speaking
@@ -352,7 +548,7 @@ function toggleMic() {
     stopRecognition();
     btnMic.classList.remove('active');
     setVisual(null);
-    setStatus('Say “Jarvis” to wake me');
+    setStatus('Say “' + identity.assistantName + '” to wake me');
     sleep(false);
   } else {
     micOn = true;
@@ -360,7 +556,7 @@ function toggleMic() {
     startRecognition();
     animateWave(true);
     setVisual('listening');
-    setStatus('Listening for “Jarvis”…', true);
+    setStatus('Listening for “' + identity.assistantName + '”…', true);
   }
 }
 
@@ -384,9 +580,15 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') cmdInput.blur();
     return;
   }
+  if (e.key === 'Escape') {
+    if (!onboarding.hidden) return;
+    if (!settingsPanel.hidden) { closeSettings(); return; }
+    window.jarvis && window.jarvis.quit();
+    return;
+  }
   if (e.key === 'm' || e.key === 'M') toggleMic();
   else if (e.key === 'f' || e.key === 'F') window.jarvis && window.jarvis.toggleFullscreen();
-  else if (e.key === 'Escape') window.jarvis && window.jarvis.quit();
+  else if (e.key === 's' || e.key === 'S') { if (onboarding.hidden) openSettings(); }
 });
 
 // auto-hide topbar
@@ -403,13 +605,22 @@ window.addEventListener('focus', showTopbar);
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-const voiceReady = initRecognition();
-if (voiceReady) {
-  micOn = true;
-  btnMic.classList.add('active');
-  startRecognition();
-  animateWave(true);
-  setVisual('listening');
-  setStatus('Listening for “Jarvis”…', true);
-}
-setTimeout(() => { hintEl.style.opacity = '0.25'; }, 12000);
+(async function boot() {
+  await loadIdentity();
+  await loadAIConfig();
+
+  const voiceReady = initRecognition();
+  if (voiceReady) {
+    micOn = true;
+    btnMic.classList.add('active');
+    startRecognition();
+    animateWave(true);
+    setVisual('listening');
+    setStatus('Listening for “' + identity.assistantName + '”…', true);
+  }
+
+  // First launch: ask for the user's name and what to call the assistant.
+  if (!identity.userName) openOnboarding();
+
+  setTimeout(() => { hintEl.style.opacity = '0.25'; }, 12000);
+})();
