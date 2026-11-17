@@ -4,7 +4,10 @@ const path = require('path');
 
 const FILE = path.join(app.getPath('userData'), 'jarvis-settings.json');
 
+const SETUP_NOTE = '(paste api here) — add a key with: jarvis set-key groq gsk_...  (or use the settings panel in the app)';
+
 const DEFAULTS = {
+  _setup: SETUP_NOTE,
   provider: 'groq',
   identity: { userName: '', assistantName: 'Jarvis' },
   keys: { openai: '', anthropic: '', gemini: '', groq: '' },
@@ -44,6 +47,7 @@ function load() {
       ? raw.provider
       : DEFAULTS.provider;
     return {
+      _setup: raw._setup ?? SETUP_NOTE,
       provider,
       identity: { ...DEFAULTS.identity, ...(raw.identity || {}) },
       keys,
@@ -51,6 +55,7 @@ function load() {
     };
   } catch {
     return {
+      _setup: SETUP_NOTE,
       provider: DEFAULTS.provider,
       identity: { ...DEFAULTS.identity },
       keys: { ...DEFAULTS.keys },
@@ -61,6 +66,7 @@ function load() {
 
 function save(config) {
   const out = {
+    _setup: config._setup ?? SETUP_NOTE,
     provider: config.provider,
     identity: config.identity,
     models: config.models,

@@ -29,7 +29,10 @@ MODELS = {
     "groq": "llama-3.3-70b-versatile",
 }
 
+SETUP_NOTE = "(paste api here) — add a key with: jarvis set-key groq gsk_...  (or use the settings panel in the app)"
+
 DEFAULTS = {
+    "_setup": SETUP_NOTE,
     "provider": "groq",
     "identity": {"userName": "", "assistantName": "Jarvis"},
     "models": dict(MODELS),
